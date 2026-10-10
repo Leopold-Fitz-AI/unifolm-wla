@@ -29,13 +29,7 @@ num_processes=${NUM_PROCESSES:-$(nvidia-smi -L | wc -l)}
   --config_yaml ${config_yaml} \
   --framework.name ${Framework_name} \
   --framework.qwenvl.base_vlm ${base_vlm} \
-  --framework.omnivggt_fusion.enabled False \
-  --framework.omnivggt_fusion.fusion_dim 1024 \
-  --framework.action_tokenizer.enabled True \
-  --framework.action_tokenizer.ce_loss_weight 0.1 \
   --framework.robot_state_projector.enabled True \
-  --framework.action_model.rtc True \
-  --framework.action_model.max_delay 15 \
   --datasets.vla_data.data_config_path ${data_config_path} \
   --datasets.vla_data.per_device_batch_size 8 \
   --datasets.vla_data.num_workers 4 \
@@ -48,3 +42,20 @@ num_processes=${NUM_PROCESSES:-$(nvidia-smi -L | wc -l)}
   --trainer.gradient_accumulation_steps 4 \
   --run_root_dir ${run_root_dir} \
   --run_id ${run_id}
+
+# NOTE (removed flags): this script previously also passed
+#     --framework.omnivggt_fusion.enabled / .fusion_dim
+#     --framework.action_tokenizer.enabled / .ce_loss_weight
+#     --framework.action_model.rtc / .max_delay
+# All six are read nowhere in this repository (`OmegaConf.merge` accepts unknown
+# keys silently), so they only created the illusion that those features were on.
+# Re-add them together with the corresponding implementation, not before.
+#
+# NOTE (state injection): the `--framework.robot_state_projector.enabled True`
+# flag in the launch block above is NOT cosmetic. `QwenMMDiT.__init__` forces
+# `action_model.state_dim = 0` whenever the projector is enabled, so this script
+# trains the VLM-side projector path (robot state is projected into the
+# `<|robot_state|>` token) and NOT the DiT-side state-token path that
+# `unifolm_wla_pretrain_multisource.yaml` implies with its `state_dim: 60`.
+# Launch the YAML without that flag to get the state-token variant instead --
+# the two produce incompatible checkpoints.

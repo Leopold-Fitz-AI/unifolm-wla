@@ -63,7 +63,15 @@ trainer:
   # Freeze the VLM backbone -- only the action-expert (DiT) head and the
   # robot-state projector train. Fits a single 24GB GPU; drop this to
   # co-train the VLM if you have more VRAM.
+  #
+  # NOTE: `robot_state_projector` is attached *inside* `qwen_vl_interface`
+  # (`qwen_vl_interface.model.robot_state_projector`, see QWen3.py
+  # `attach_robot_state_projector`), so freezing `qwen_vl_interface` alone would
+  # freeze the projector too. `unfreeze_modules` below carves it back out so it
+  # actually trains, which is the behaviour documented in
+  # docs/train_action_expert.md.
   freeze_modules: "qwen_vl_interface"
+  unfreeze_modules: "qwen_vl_interface.model.robot_state_projector"
   max_train_steps: 20000
   num_warmup_steps: 200
   save_interval: 2000

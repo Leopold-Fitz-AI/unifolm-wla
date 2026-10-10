@@ -106,6 +106,12 @@ def build_param_lr_groups(model, cfg):
         freeze_modules = ""
     freeze_patterns = [p.strip() for p in freeze_modules.split(",") if p.strip()]
 
+    # `unfreeze_modules` overrides `freeze_modules` (subtracted below).
+    unfreeze_modules = cfg.trainer.get("unfreeze_modules", "")
+    if not isinstance(unfreeze_modules, str):
+        unfreeze_modules = ""
+    unfreeze_patterns = [p.strip() for p in unfreeze_modules.split(",") if p.strip()]
+
     used_params = set()
     frozen_params = set()
     param_groups = []
@@ -122,6 +128,20 @@ def build_param_lr_groups(model, cfg):
             print(f"⚠️ freeze module path does not exist: {freeze_path}")
             continue
 
+    # Subtract explicitly-unfrozen params so they are (a) eligible for a param
+    # group here and (b) left trainable by `freeze_backbones`. Needed when the
+    # module we want to keep training lives *inside* a frozen parent -- e.g.
+    # `robot_state_projector` sits under `qwen_vl_interface`.
+    for unfreeze_path in unfreeze_patterns:
+        module = model
+        try:
+            for attr in unfreeze_path.split("."):
+                module = getattr(module, attr)
+            frozen_params.difference_update(id(p) for p in module.parameters())
+        except AttributeError:
+            print(f"⚠️ unfreeze module path does not exist: {unfreeze_path}")
+            continue
+
     for module_name, lr in lr_cfg.items():
         if module_name == "base":
             continue
@@ -136,7 +156,7 @@ def build_param_lr_groups(model, cfg):
                 param_groups.append({"params": params, "lr": lr, "name": module_name})
                 used_params.update(id(p) for p in params)
         except AttributeError:
-            ReferenceError(f"⚠️ module path `{module_name}` not found in vla")
+            print(f"⚠️ lr module path `{module_name}` not found in vla; skipping this group")
 
     # assign base learning rate to the remaining unused parameters (exclude frozen/non-trainable ones)
     other_params = [p for p in model.parameters() if id(p) not in used_params and id(p) not in frozen_params and p.requires_grad]
@@ -187,7 +207,7 @@ import torch.distributed as dist
 
 class TrainerUtils:
     @staticmethod
-    def freeze_backbones(model, freeze_modules=""):
+    def freeze_backbones(model, freeze_modules="", unfreeze_modules=""):
         """
         directly freeze the specified submodules based on the relative module path list (patterns), no longer recursively find all submodule names:
           - patterns: read from config.trainer.freeze_modules, separated by commas to get the "relative path" list
@@ -197,6 +217,13 @@ class TrainerUtils:
         Args:
             model: nn.Module model object
             freeze_modules: relative module path list (patterns)
+            unfreeze_modules: relative module path list (patterns) to *exclude* from
+                freezing. Applied after `freeze_modules` and takes precedence. Exists
+                because a module we want to keep training can live inside a frozen
+                parent: `qwen_vl_interface` must be frozen to fit memory, but
+                `qwen_vl_interface.model.robot_state_projector` (how the released
+                UnifoLM-WLA checkpoints inject robot state) should keep training.
+                Every parameter under these paths gets ``requires_grad = True``.
 
         Returns:
             model: nn.Module model object
@@ -229,9 +256,24 @@ class TrainerUtils:
                     print(f"⚠️ module path does not exist, cannot freeze: {path}")
                     continue
 
+        unfrozen = []
+        if unfreeze_modules and type(unfreeze_modules) == str:
+            for path in [p.strip() for p in unfreeze_modules.split(",") if p.strip()]:
+                module = model
+                try:
+                    for attr in path.split("."):
+                        module = getattr(module, attr)
+                    for param in module.parameters():
+                        param.requires_grad = True
+                    unfrozen.append(path)
+                except AttributeError:
+                    print(f"⚠️ module path does not exist, cannot unfreeze: {path}")
+                    continue
+
         # accelerator.wait_for_everyone()  # synchronize when distributed training
         if dist.is_initialized() and dist.get_rank() == 0:
             print(f"🔒 Frozen modules with re pattern: {frozen}")
+            print(f"🔓 Excluded from freezing (trainable): {unfrozen}")
         return model
 
     @staticmethod

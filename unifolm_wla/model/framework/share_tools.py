@@ -402,6 +402,16 @@ def read_mode_config(pretrained_checkpoint):
             candidate = run_dir / base_vlm
             if candidate.is_dir():
                 global_cfg["framework"]["qwenvl"]["base_vlm"] = str(candidate)
+                base_vlm = str(candidate)
+        # Diagnostics for the case this repair CANNOT handle: an absolute path
+        # recorded on the training cluster. Surfacing it here turns a confusing
+        # downstream download/build failure into an actionable message.
+        if base_vlm and not os.path.isdir(base_vlm):
+            overwatch.warning(
+                f"`framework.qwenvl.base_vlm` = {base_vlm!r} is not an existing directory on this "
+                f"machine. Loading will fail unless it is reachable. Pass an explicit override "
+                f"(e.g. `--base_vlm <path>` for model_server, or `base_vlm=` for from_pretrained)."
+            )
     else:
         overwatch.error(f"❌ Pretrained checkpoint `{pretrained_checkpoint}` does not exist.")
         raise FileNotFoundError(f"Pretrained checkpoint `{pretrained_checkpoint}` does not exist.")

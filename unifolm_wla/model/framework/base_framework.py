@@ -206,6 +206,7 @@ class baseframework(PreTrainedModel):
     def from_pretrained(
         cls,
         pretrained_checkpoint: str,
+        base_vlm: str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -220,6 +221,10 @@ class baseframework(PreTrainedModel):
 
         Args:
             pretrained_checkpoint: Path to .pt file inside run/checkpoints directory.
+            base_vlm: Optional override for ``framework.qwenvl.base_vlm``. Needed
+                when the recorded path is an absolute path from the training
+                cluster and therefore does not exist on this machine
+                (`read_mode_config` can only repair *relative* paths).
             **kwargs: Extra constructor overrides passed to subclass.
 
         Returns:
@@ -231,6 +236,10 @@ class baseframework(PreTrainedModel):
         """
         pretrained_checkpoint = Path(pretrained_checkpoint)
         model_config, norm_stats = read_mode_config(pretrained_checkpoint)  # read config and norm_stats
+
+        if base_vlm:
+            overwatch.info(f"Overriding `framework.qwenvl.base_vlm` -> {base_vlm}")
+            model_config.setdefault("framework", {}).setdefault("qwenvl", {})["base_vlm"] = base_vlm
 
         config = dict_to_namespace(model_config)
         model_config = config

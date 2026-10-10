@@ -145,7 +145,17 @@ class VLATrainer(TrainerUtils):
             if (self.config and hasattr(self.config.trainer, "freeze_modules"))
             else None
         )
-        self.model = self.freeze_backbones(self.model, freeze_modules=freeze_modules)
+        # Optional override list: params under these paths stay trainable even if a
+        # parent module is frozen. Lets `freeze_modules: qwen_vl_interface` coexist
+        # with training `qwen_vl_interface.model.robot_state_projector`.
+        unfreeze_modules = (
+            self.config.trainer.unfreeze_modules
+            if (self.config and hasattr(self.config.trainer, "unfreeze_modules"))
+            else None
+        )
+        self.model = self.freeze_backbones(
+            self.model, freeze_modules=freeze_modules, unfreeze_modules=unfreeze_modules
+        )
         self.print_trainable_parameters(self.model)
 
         if self.vla_train_dataloader.batch_size is None:

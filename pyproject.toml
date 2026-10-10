@@ -64,7 +64,28 @@ dependencies = [
     "lerobot==0.5.0",
     "datasets==4.8.5",
     "peft>=0.21.0",
+    # Declared explicitly because first-party code imports them directly. They
+    # previously resolved only as transitive dependencies of deepspeed /
+    # lerobot / transformers, so a dependency bump could break the data path or
+    # `model_server/` without any change on our side:
+    #   msgpack  -> model_server/tools/msgpack_numpy.py  (was: via deepspeed)
+    #   opencv   -> model_server/ + dataloader image decode (via lerobot/albumentations)
+    #   pyyaml   -> dataloader/multi_source_dataset/config.py (was: via transformers)
+    #   safetensors -> base_framework / robot_state / trainer (via transformers)
+    #   tqdm     -> training loop + both eval scripts (via transformers/datasets)
+    "msgpack",
+    "opencv-python-headless",
+    "pyyaml",
+    "safetensors",
+    "tqdm",
 ]
+
+# NOTE: `flash-attn` is intentionally NOT listed. It has no usable generic wheel
+# (it needs a CUDA toolchain and `--no-build-isolation`), so adding it here would
+# make `uv sync` fail on machines that do not need it. Install it manually when
+# you want `attn_implementation: flash_attention_2`:
+#     uv pip install flash-attn --no-build-isolation
+# Without it `_QWen3_VL_Interface` falls back to `sdpa` automatically.
 
 [project.optional-dependencies]
 dev = [
