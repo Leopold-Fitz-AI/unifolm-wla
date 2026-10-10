@@ -267,6 +267,10 @@ unifolm_wla/model/framework/VLM4A/QwenGR00T_v2.py
 **/checkpoints/*
 **/MP_lite_PyTorch
 **/tests
+# ...except the model_server safety-layer tests, which are first-party and must
+# be runnable/committable by anyone touching the deployment path.
+!model_server/tests/
+!model_server/tests/*.py
 **/examples/OmniVGGT/example/**
 **/examples/pretrain/eval_files/Robotwin/assets/*
 plot_loss.py

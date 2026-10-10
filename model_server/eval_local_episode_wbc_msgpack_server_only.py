@@ -27,7 +27,7 @@ Usage:
     # First, in another terminal:
     python -m model_server.action_server_wbc_msgpack_unitree \\
         --ckpt_path playground/Checkpoints/<run_id>/checkpoints/steps_<N>_model.safetensors \\
-        --backend eager --host 127.0.0.1 --port 8600
+        --host 127.0.0.1 --port 8600
 
     # Then:
     python -m model_server.eval_local_episode_wbc_msgpack_server_only \\
@@ -58,7 +58,7 @@ from unifolm_wla.dataloader.multi_source_dataset.single_source_dataset import cr
 from unifolm_wla.dataloader.multi_source_dataset.action_mapping import STATE_SLICES  # noqa: E402
 
 _UNITREE_EVAL_DIR = str(
-    Path(_WORKSPACE_ROOT) / "examples" / "pretrain" / "eval_files" / "unitree"
+    Path(_WORKSPACE_ROOT) / "examples" / "unifolm_wla" / "eval_files" / "unitree"
 )
 if _UNITREE_EVAL_DIR not in sys.path:
     sys.path.insert(0, _UNITREE_EVAL_DIR)

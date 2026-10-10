@@ -1,0 +1,78 @@
+# Joint / slot limit template for model_server/safety.py
+# =============================================================================
+# HOW TO USE
+#   python -m model_server.action_server_wbc_msgpack_unitree \
+#       --ckpt_path ... --joint_limits model_server/joint_limits.example.yaml
+#
+# THIS FILE SHIPS NO NUMBERS ON PURPOSE. The unifolm-wla repository contains no
+# robot joint limits, and guessing them for a humanoid would be worse than not
+# clipping at all. Fill in the ranges from Unitree's documentation for YOUR
+# specific G1 configuration, then rename/copy this file.
+#
+# Any slot left as `lower: null` / `upper: null` is skipped (not clipped).
+#
+# ORDER MATTERS. Indices follow the unified layout in
+# `unifolm_wla/dataloader/multi_source_dataset/action_mapping.py::SLICES`,
+# NOT the order the action keys happen to be concatenated in for the client.
+#
+# Coverage note: the live server only exercises the Dex1 slots
+# (`left_ee`, `left_gripper`, `right_ee`, `right_gripper`, `waist_joint`,
+# `base_command`, `left_leg_joint`, `right_leg_joint`). Slots not present in the
+# data are masked out, and `clip_joint_limits` deliberately skips masked
+# columns, so listing WBT-only slots here is harmless.
+# =============================================================================
+
+# Left leg, 6 DoF, index order (see action_mapping.py and
+# docs/robot_action_state_processing.md S3.1.1 / S16.19):
+#   [hip_pitch, hip_roll, hip_yaw, knee, ankle_pitch, ankle_roll]
+left_leg_joint:
+  lower: null   # e.g. [-2.618, -0.087, -2.618, -0.087, -0.872, -0.349]
+  upper: null   # e.g. [ 2.618,  2.618,  2.618,  2.618,  0.872,  0.349]
+
+# Right leg, same 6 DoF and same index order as the left leg.
+right_leg_joint:
+  lower: null
+  upper: null
+
+# Waist, 3 DoF. IMPORTANT: the dataset order here is [yaw, roll, pitch] -- this
+# is NOT the same order the server emits in `action.pivot`, where it remaps to
+# [yaw, pitch, roll] (see `_encode_action`). Fill this file in DATASET order.
+waist_joint:
+  lower: null   # e.g. [-1.000, -0.500, -0.500]   #  (yaw, roll, pitch)
+  upper: null   # e.g. [ 1.000,  0.500,  0.500]
+
+# Grippers are absolute positions in the unified action space (normalized by
+# `gripper_norm_type`), so limits here are in raw gripper units of the source
+# dataset, not radians.
+left_gripper:
+  lower: null
+  upper: null
+
+right_gripper:
+  lower: null
+  upper: null
+
+# Base velocity command. NOTE: `base_command` is a *group label* in the dataset
+# config, not a slot name -- the loader validates keys against
+# `action_mapping.SLICES`, so it must be written as the three real slots below.
+base_vx_vy:
+  lower: null   # e.g. [-0.5, -0.5]     (vx, vy)
+  upper: null   # e.g. [ 0.5,  0.5]
+
+base_vw:
+  lower: null   # e.g. [-1.0]           (yaw rate)
+  upper: null   # e.g. [ 1.0]
+
+height:
+  lower: null   # e.g. [null]
+  upper: null
+
+# Relative end-effector deltas: [dx, dy, dz, drx, dry, drz]. Bounding these
+# caps how far one prediction step may move the hand, which is a cheap way to
+# limit per-step motion without knowing anything about the arm.
+# left_xyz_rotvec:
+#   lower: null
+#   upper: null
+# right_xyz_rotvec:
+#   lower: null
+#   upper: null

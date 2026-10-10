@@ -71,6 +71,11 @@ import websockets.frames
 from scipy.spatial.transform import Rotation
 
 sys.path.insert(0, os.path.dirname(__file__))
+from safety import (  # noqa: E402
+    ActionSafetyConfig,
+    ActionSafetyLimiter,
+    load_joint_limits,
+)
 from tools import msgpack_numpy  # noqa: E402
 from tools.debug_saver import StepDebugSaver  # noqa: E402
 from unifolm_wla_action_adapter import (  # noqa: E402
@@ -142,13 +147,100 @@ def _compose_ee_to_xyz_rpy(anchor_9: np.ndarray, rel_6_chunk: np.ndarray) -> np.
     return np.concatenate([xyz_abs, rpy_abs], axis=1).astype(np.float32)  # (T,6)
 
 
+# Fallback camera resize target, matching the shipped
+# `unifolm_wla/dataloader/multi_source_dataset/configs/unitree.yaml` (`image_size: [336, 448]`).
+_DEFAULT_IMAGE_SIZE: Tuple[int, int] = (336, 448)
+
+
+def _resolve_image_size(args, mode_config: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+    """Decide the camera resize target ``(H, W)``.
+
+    Priority:
+      1. explicit ``--image_size H W`` (pass ``0 0`` to disable resizing),
+      2. ``image_size`` read from the training data config recorded in the
+         checkpoint (``datasets.vla_data.data_config_path``),
+      3. ``_DEFAULT_IMAGE_SIZE``.
+
+    Why the lookup: the model saw camera frames at the *training* resolution, so
+    serving at any other resolution is a train/serve mismatch that degrades
+    accuracy **without raising anything**. Deriving it from the checkpoint's own
+    data config makes this correct by default; when that config is not reachable
+    from the serving machine we warn loudly and fall back.
+    """
+    if args.image_size is not None:
+        if all(args.image_size):
+            return (int(args.image_size[0]), int(args.image_size[1]))
+        logging.warning("--image_size %s contains a zero -> camera resizing disabled",
+                        list(args.image_size))
+        return None
+
+    data_cfg_path = ((mode_config.get("datasets") or {}).get("vla_data") or {}).get("data_config_path")
+    if data_cfg_path:
+        try:
+            from unifolm_wla.dataloader.multi_source_dataset.config import load_config
+
+            data_cfg = load_config(data_cfg_path)
+            if data_cfg.image_size:
+                size = (int(data_cfg.image_size[0]), int(data_cfg.image_size[1]))
+                logging.info("image_size=%s (auto-detected from %s)", size, data_cfg_path)
+                return size
+            logging.info("data config %s sets no image_size -> using dataset-native resolution",
+                         data_cfg_path)
+            return None
+        except Exception as exc:  # noqa: BLE001 - never fail startup over this
+            logging.warning("could not read image_size from data config %r (%s); "
+                            "falling back to %s", data_cfg_path, exc, _DEFAULT_IMAGE_SIZE)
+    else:
+        logging.warning("checkpoint config records no datasets.vla_data.data_config_path; "
+                        "falling back to %s", _DEFAULT_IMAGE_SIZE)
+
+    logging.warning("VERIFY that image_size=%s matches the checkpoint's training resolution, "
+                    "or pass --image_size H W explicitly.", _DEFAULT_IMAGE_SIZE)
+    return _DEFAULT_IMAGE_SIZE
+
+
+def _build_safety(args) -> ActionSafetyLimiter:
+    """Assemble the action safety policy from CLI args.
+
+    Physical joint ranges are never invented: without ``--joint_limits`` they are
+    simply not clipped, and we say so loudly at startup.
+    """
+    limits = load_joint_limits(args.joint_limits) if args.joint_limits else None
+    if args.safety and args.joint_limits and not limits:
+        logging.warning(
+            "joint-limits file %s defined no usable slot (all bounds null?) -> nothing clipped",
+            args.joint_limits)
+    elif limits:
+        logging.info("joint limits active for slots: %s", sorted(limits))
+    elif args.safety:
+        logging.warning(
+            "no --joint_limits supplied -> physical joint ranges are NOT clipped. "
+            "See model_server/joint_limits.example.yaml.")
+
+    cfg = ActionSafetyConfig(
+        enabled=bool(args.safety),
+        clamp_norm=float(args.action_clip_norm),
+        max_step_norm=float(args.action_max_step),
+        blend_steps=int(args.action_blend_steps),
+        infer_timeout_ms=float(args.infer_timeout_ms),
+        require_all_cameras=bool(args.require_all_cameras),
+        strict_rot6d=bool(args.strict_rot6d),
+        joint_limits=limits,
+    )
+    if cfg.enabled and cfg.blend_steps <= 0:
+        logging.info(
+            "cross-chunk seam blending is OFF (--action_blend_steps 0). Enable it if the client "
+            "jumps straight to each new chunk's first step.")
+    return ActionSafetyLimiter(cfg)
+
+
 class ActionServerWBCMsgpack:
 
     def __init__(self, args):
         self.args = args
         self.instruction = args.instruction
-        logging.info("Loading model from: %s (backend=%s)", args.ckpt_path)
-        self.model = baseframework.from_pretrained(args.ckpt_path)
+        logging.info("Loading model from: %s", args.ckpt_path)
+        self.model = baseframework.from_pretrained(args.ckpt_path, base_vlm=args.base_vlm)
         if args.use_bf16:
             self.model = self.model.to(torch.bfloat16)
         self.model = self.model.to(DEVICE).eval()
@@ -179,8 +271,9 @@ class ActionServerWBCMsgpack:
                 list(self._norm_stats_all.keys()))
 
         self._action_mask = build_unitree_fullbody_action_mask()  # (54,) bool
-        self._image_size = tuple(args.image_size) if args.image_size and all(args.image_size) else None
-        logging.info("image_size=%s", self._image_size)
+        self._image_size = _resolve_image_size(args, mode_config)
+        self._safety = _build_safety(args)
+        logging.info("safety=%s", self._safety.config_summary())
 
         cv2.setNumThreads(0)
         self._img_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="imgdecode")
@@ -196,6 +289,7 @@ class ActionServerWBCMsgpack:
             "action_chunk_size": self._action_chunk_size,
             "available_unnorm_keys": list(self._norm_stats_all.keys()),
             "default_unnorm_key": self._default_unnorm_key,
+            "safety": self._safety.config_summary(),
         }
 
     # ── obs -> unified state ───────────────────────────────────────────────
@@ -220,6 +314,10 @@ class ActionServerWBCMsgpack:
 
         left_ee = _last_frame(obs["observation.state.left_ee_6d"]).astype(np.float32).ravel()
         right_ee = _last_frame(obs["observation.state.right_ee_6d"]).astype(np.float32).ravel()
+        # The client is contractually required to send an orthonormal rot6d; a
+        # malformed one is otherwise silently Gram-Schmidt-corrected downstream.
+        self._safety.check_rot6d(left_ee, "observation.state.left_ee_6d")
+        self._safety.check_rot6d(right_ee, "observation.state.right_ee_6d")
         state[STATE_SLICES["left_xyz_rot6d"]] = left_ee[:9]
         mask[STATE_SLICES["left_xyz_rot6d"]] = True
         state[STATE_SLICES["right_xyz_rot6d"]] = right_ee[:9]
@@ -259,8 +357,11 @@ class ActionServerWBCMsgpack:
     def _build_example(self, obs: dict) -> dict:
         unnorm_key = self._resolve_unnorm_key(obs)
 
-        images = [img for img in self._img_pool.map(self._decode_one_image, ((k, obs) for k in _IMAGE_KEYS))
-                  if img is not None]
+        decoded = list(self._img_pool.map(self._decode_one_image, ((k, obs) for k in _IMAGE_KEYS)))
+        # Validate BEFORE filtering: dropping a camera silently would change the
+        # prompt (one fewer `role: <image>` block) without raising anything.
+        self._safety.check_cameras([k for k, img in zip(_IMAGE_KEYS, decoded) if img is None])
+        images = [img for img in decoded if img is not None]
 
         state_unnorm, state_mask = self._build_state_unnorm(obs)
         norm = self._norm_arrays[unnorm_key]
@@ -285,6 +386,9 @@ class ActionServerWBCMsgpack:
     def _encode_action(self, pred_norm: np.ndarray, unnorm_key: str, state_unnorm: np.ndarray) -> Dict[str, np.ndarray]:
         norm = self._norm_arrays[unnorm_key]
         unnorm = (pred_norm * norm["action_scale"] + norm["action_offset"]).astype(np.float32)  # (T,54)
+        # Physical limits are physical quantities, so they are applied here (post
+        # un-normalization) rather than in normalized space.
+        unnorm = self._safety.clip_joint_limits(unnorm, mask=self._action_mask)
 
         left_anchor = state_unnorm[STATE_SLICES["left_xyz_rot6d"]]
         right_anchor = state_unnorm[STATE_SLICES["right_xyz_rot6d"]]
@@ -319,7 +423,7 @@ class ActionServerWBCMsgpack:
 
         # Each key carries a leading batch axis of 1: (1, T, D). The client
         # indexes action_pred[key][0, :chunk].
-        return {
+        action = {
             "action.left_ee_rpy": left_ee_rpy[None],
             "action.right_ee_rpy": right_ee_rpy[None],
             "action.left_gripper": left_gripper[None],
@@ -328,6 +432,10 @@ class ActionServerWBCMsgpack:
             "action.base_command": base_command[None],
             "action.pivot": pivot[None],
         }
+        # Seam smoothing happens last, in absolute space, because consecutive
+        # chunks are composed onto different state anchors -- the discontinuity
+        # only exists once the poses are absolute.
+        return self._safety.blend(action)
 
     # ── inference ──────────────────────────────────────────────────────────
 
@@ -340,7 +448,25 @@ class ActionServerWBCMsgpack:
         if DEVICE.type == "cuda":
             torch.cuda.synchronize()
         t2 = time.perf_counter()
+
+        # Watchdog: a chunk that arrives after its own execution window has
+        # elapsed is worse than no chunk, so degrade to "hold the last commanded
+        # pose" instead of handing the client stale motion.
+        infer_ms = (t2 - t1) * 1e3
+        timeout_ms = float(self._safety.cfg.infer_timeout_ms)
+        if self._safety.cfg.enabled and timeout_ms > 0 and infer_ms > timeout_ms:
+            hold = self._safety.build_hold()
+            logging.error(
+                "[safety] predict_action took %.1f ms > %.1f ms budget; returning %s",
+                infer_ms, timeout_ms,
+                "a HOLD pose" if hold is not None else
+                "the real chunk (no previous chunk exists to hold)")
+            if hold is not None:
+                return hold
+
         pred_norm = out["normalized_actions"][0]   # (T,54)
+        pred_norm = self._safety.clamp_normalized(pred_norm, mask=self._action_mask)
+        pred_norm = self._safety.rate_limit(pred_norm, mask=self._action_mask)
         action = self._encode_action(pred_norm, prep["unnorm_key"], prep["state_unnorm"])
 
         self._debug_saver.save_step(
@@ -350,7 +476,7 @@ class ActionServerWBCMsgpack:
             prefix_len=0,
             chunk_id=0,
             state_unnorm=prep["state_unnorm"],
-            pred_norm=pred_norm,
+            pred_norm=pred_norm,          # post-safety: matches the wire action
             unnorm_key=prep["unnorm_key"],
         )
         t3 = time.perf_counter()
@@ -373,14 +499,27 @@ class ActionServerWBCMsgpack:
                 if mtype == "get_action":
                     return_data = self.get_action(msg["obs"])
                 elif mtype in ("policy_reset", "update_dataset"):
+                    # Episode boundary: drop the cross-chunk seam state so the
+                    # next chunk does not blend into the previous episode.
+                    self._safety.reset()
                     return_data = {}
-                elif mtype in ("policy_train", "policy_save", "policy_load", "episode_end", "obs_init"):
+                elif mtype in ("policy_train", "policy_save", "policy_load"):
+                    return_data = None
+                elif mtype in ("episode_end", "obs_init"):
+                    # `episode_end` is an unambiguous boundary; `obs_init` is left
+                    # as a pure no-op because clients may send it per chunk, which
+                    # would defeat seam blending.
+                    if mtype == "episode_end":
+                        self._safety.reset()
                     return_data = None
                 elif mtype == "obs_chunk":
                     # streaming obs: no response expected by the client
                     continue
                 else:
                     raise ValueError(f"Invalid message type: {mtype}")
+
+                if mtype == "get_action":
+                    logging.debug("[safety] stats=%s", self._safety.stats())
 
                 await websocket.send(packer.pack(return_data))
 
@@ -418,12 +557,46 @@ def main():
     parser.add_argument("--unnorm_key", default=None,
                         help="Dataset key for norm stats (auto-detected if single dataset)")
     parser.add_argument("--use_bf16", action="store_true", default=True)
-    parser.add_argument("--image_size", type=int, nargs=2, default=[320, 448], metavar=("H", "W"))
+    parser.add_argument("--image_size", type=int, nargs=2, default=None, metavar=("H", "W"),
+                        help="Camera resize target (H W). Default: auto-detect from the checkpoint's "
+                             "training data config (datasets.vla_data.data_config_path -> image_size), "
+                             f"falling back to {_DEFAULT_IMAGE_SIZE[0]} {_DEFAULT_IMAGE_SIZE[1]}. "
+                             "Pass '0 0' to disable resizing.")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8600)
     parser.add_argument("--debug_save_dir", default=None,
                         help="If set, save a per-step camera+action debug image to this "
                              "directory on a background thread.")
+    parser.add_argument("--base_vlm", default=None, metavar="PATH",
+                        help="Override framework.qwenvl.base_vlm. Needed when the checkpoint "
+                             "recorded a training-cluster path that does not exist on this machine.")
+
+    safety = parser.add_argument_group("action safety")
+    safety.add_argument("--safety", action=argparse.BooleanOptionalAction, default=True,
+                        help="Enable the safety layer (clamp / rate limit / joint limits / "
+                             "seam blend / watchdog / input validation).")
+    safety.add_argument("--action_clip_norm", type=float, default=5.0, metavar="FLOAT",
+                        help="Clamp |normalized action| to this value (0 disables). Normalized "
+                             "units: 1.0 is ~q99 for minmax_q dims but 1 sigma for zscore dims, "
+                             "so the default only catches pathology.")
+    safety.add_argument("--action_max_step", type=float, default=10.0, metavar="FLOAT",
+                        help="Max per-step change in normalized action space (0 disables).")
+    safety.add_argument("--action_blend_steps", type=int, default=0, metavar="N",
+                        help="Blend the first N steps of each new chunk out of the previous "
+                             "chunk's last commanded step (0 disables). Enable this if your "
+                             "client jumps straight to each new chunk's step 0.")
+    safety.add_argument("--joint_limits", default=None, metavar="PATH",
+                        help="YAML/JSON file of per-slot [lo, hi] physical bounds. See "
+                             "model_server/joint_limits.example.yaml. Without it, joint ranges "
+                             "are NOT clipped.")
+    safety.add_argument("--infer_timeout_ms", type=float, default=2000.0, metavar="MS",
+                        help="If one predict_action call exceeds this, return a hold pose "
+                             "instead of a stale chunk (0 disables).")
+    safety.add_argument("--require_all_cameras", action=argparse.BooleanOptionalAction, default=True,
+                        help="Raise when a camera observation is missing (default) instead of "
+                             "silently serving a prompt with fewer images than training.")
+    safety.add_argument("--strict_rot6d", action=argparse.BooleanOptionalAction, default=False,
+                        help="Raise instead of warning when a client EE rot6d is not orthonormal.")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", force=True)

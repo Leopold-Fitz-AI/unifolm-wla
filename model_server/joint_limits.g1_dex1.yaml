@@ -1,0 +1,62 @@
+# G1 joint limits for model_server/safety.py (`--joint_limits`).
+#
+# GENERATED FILE -- do not hand-edit. Regenerate with:
+#   python -m model_server.tools.urdf_to_joint_limits \
+#       --urdf third_party/unitree_ros/robots/g1_description/g1_29dof_mode_15_with_dex1_1.urdf \
+#       --out <this file> --margin-deg 5
+#
+# Source of truth: the official Unitree robot description above.
+# Values below are the URDF `<limit>` values shrunk inward by
+# 5 deg on each side, because a clip bound set exactly at the mechanical
+# stop only fires once the joint is already there.
+#
+# VERIFY BEFORE USE ON HARDWARE:
+#   - the URDF matches your machine's mode_machine
+#   - waist order here is the DATASET order [yaw, roll, pitch]
+#     (action.pivot uses [yaw, pitch, roll] -- see _encode_action)
+#   - hip_roll is NOT mirror-symmetric between left and right
+#   - validate with the robot suspended before applying any load
+
+left_leg_joint:
+  # hard (URDF): lower [-2.5307, -0.5236, -2.7576, -0.0873, -0.8727, -0.2618]
+  #              upper [2.8798, 2.9671, 2.7576, 2.8798, 0.5236, 0.2618]
+  lower: [-2.4434, -0.4363, -2.6703, -0.0000, -0.7854, -0.1745]
+  upper: [2.7925, 2.8798, 2.6703, 2.7925, 0.4363, 0.1745]
+
+right_leg_joint:
+  # hard (URDF): lower [-2.5307, -2.9671, -2.7576, -0.0873, -0.8727, -0.2618]
+  #              upper [2.8798, 0.5236, 2.7576, 2.8798, 0.5236, 0.2618]
+  lower: [-2.4434, -2.8798, -2.6703, -0.0000, -0.7854, -0.1745]
+  upper: [2.7925, 0.4363, 2.6703, 2.7925, 0.4363, 0.1745]
+
+waist_joint:
+  # hard (URDF): lower [-2.6180, -0.5200, -0.5200]
+  #              upper [2.6180, 0.5200, 0.5200]
+  lower: [-2.5307, -0.4327, -0.4327]
+  upper: [2.5307, 0.4327, 0.4327]
+
+# --- intentionally unset: no URDF counterpart -------------------------
+# base_vx_vy (2 dims): (vx, vy) -- base velocity command, not a joint
+base_vx_vy:
+  lower: null
+  upper: null
+
+# base_vw (1 dims): (vw) -- base yaw-rate command, not a joint
+base_vw:
+  lower: null
+  upper: null
+
+# height (1 dims): body height command, not a joint
+height:
+  lower: null
+  upper: null
+
+# left_xyz_rotvec (6 dims): (dx, dy, dz, drx, dry, drz) -- relative EE delta, not a joint
+left_xyz_rotvec:
+  lower: null
+  upper: null
+
+# right_xyz_rotvec (6 dims): same as left
+right_xyz_rotvec:
+  lower: null
+  upper: null
