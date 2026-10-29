@@ -1,0 +1,23 @@
+# Avoid integration of transit lag; preserve precision and speed limits.
+base_config: vla_rgb_precision.yaml
+grasp_execution:
+  lift_m: 0.14
+  speed_mps: 0.04
+  close_seconds: 0.8
+  hold_seconds: 6.0
+  min_jaw_force_n: 0.5
+  align_seconds: 0.1
+  visual_residual_m: 0.12
+  min_vla_chunks: 2
+  clearance_approach: true
+  alignment_height_m: 0.01
+  lock_descent_target: true
+  alignment_timeout_seconds: 20
+  tracking_bias_limit_m: 0.015
+  alignment_settle:
+    position_tolerance_m: 0.004
+    rotation_tolerance_rad: 0.08
+    speed_mps: 0.012
+    window_seconds: 0.2
+    stable_seconds: 0.3
+  tracking_bias_settle_only: true

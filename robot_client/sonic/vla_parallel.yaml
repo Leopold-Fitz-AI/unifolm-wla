@@ -1,0 +1,4 @@
+base_config: vla_stationary.yaml
+hand_closed: [[0.045, 0.045, 0, 0, 0, 0, 0], [0.045, 0.045, 0, 0, 0, 0, 0]]
+grasp_hold_world_frame: true
+waist_tracking_compensation: true

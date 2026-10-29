@@ -338,7 +338,9 @@ class Qwen_MMDiT(baseframework):
             images=batch_images, instructions=instructions,
             image_roles=[e.get("image_roles") for e in examples],
             arm_types=[e.get("arm_type") for e in examples],
-            add_generation_prompt=False,
+            # Explicit diagnostic override; preserve the released inference
+            # default until checkpoint-specific paired tests establish otherwise.
+            add_generation_prompt=bool(kwargs.get("encoder_generation_prompt", False)),
         )
         backbone_attention_mask = qwen_inputs.get("attention_mask", None)
         if backbone_attention_mask is not None:
@@ -367,6 +369,18 @@ class Qwen_MMDiT(baseframework):
             )
 
         body_type_ids = self._build_body_type_ids(examples, last_hidden.device)
+
+        # Inference-only independent action proposals share one visual/text
+        # encoding. No parameter/normalization/training behavior is changed.
+        samples=kwargs.get('action_samples',1)
+        if not isinstance(samples,int) or isinstance(samples,bool) or not 1<=samples<=8:
+            raise ValueError('action_samples must be an integer in [1,8]')
+        if samples>1:
+            last_hidden=last_hidden.repeat_interleave(samples,dim=0)
+            if state is not None:state=state.repeat_interleave(samples,dim=0)
+            if action_mask is not None:action_mask=action_mask.repeat_interleave(samples,dim=0)
+            if backbone_attention_mask is not None:backbone_attention_mask=backbone_attention_mask.repeat_interleave(samples,dim=0)
+            if body_type_ids is not None:body_type_ids=body_type_ids.repeat_interleave(samples,dim=0)
 
         with torch.autocast("cuda", dtype=torch.float32):
             pred_actions = self.action_model.predict_action(

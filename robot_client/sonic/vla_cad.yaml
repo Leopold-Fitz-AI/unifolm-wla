@@ -1,0 +1,4 @@
+base_config: vla_grasp_ready.yaml
+gripper_overshoot_tolerance: 0.55
+hand_closed: [[0.0445, 0.0445, 0, 0, 0, 0, 0], [0.0445, 0.0445, 0, 0, 0, 0, 0]]
+grasp_hold_tool_offsets: [[0.16009, 0, 0, 0, 0, 0], [0.16009, 0, 0, 0, 0, 0]]

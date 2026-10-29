@@ -1,0 +1,2 @@
+base_config: vla_force.yaml
+ready_gate: {enabled: true, stable_sim_seconds: 0.5, timeout_seconds: 45}

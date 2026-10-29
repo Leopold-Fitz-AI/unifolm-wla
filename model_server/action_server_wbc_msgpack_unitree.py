@@ -59,6 +59,7 @@ import os
 import sys
 import time
 import traceback
+from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -287,10 +288,35 @@ class ActionServerWBCMsgpack:
             "ckpt_path": self.args.ckpt_path,
             "data_keys": _DATA_KEYS,
             "action_chunk_size": self._action_chunk_size,
+            "capabilities": ["get_action", "get_action_candidates", "ground_object"],
+            "max_action_candidates": 8,
             "available_unnorm_keys": list(self._norm_stats_all.keys()),
             "default_unnorm_key": self._default_unnorm_key,
             "safety": self._safety.config_summary(),
         }
+
+    def ground_object(self, obs):
+        """Use this checkpoint's VLM for semantic selection, not action decoding."""
+        from PIL import Image
+        from model_server.grounding import grounding_prompt, parse_grounding
+        rgb = self._decode_one_image(("observation.images.cam_left_high", obs))
+        if rgb is None:
+            raise ValueError("ground_object requires a real head camera image")
+        instruction = obs.get("instruction") or self.instruction
+        interface = self.model.qwen_vl_interface
+        inputs = interface.build_qwenvl_inputs(images=[[Image.fromarray(rgb)]],
+            instructions=[grounding_prompt(instruction)], add_generation_prompt=True)
+        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+            tokens = interface.model.generate(**inputs, max_new_tokens=160, do_sample=False)
+        text = interface.processor.batch_decode(tokens[:, inputs["input_ids"].shape[1]:],
+            skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+        logging.info("[ground_object raw] %s", text[:2000])
+        try:
+            result = parse_grounding(text)
+        except ValueError as exc:
+            return {"raw_text": text, "parse_error": str(exc)}
+        logging.info("[ground_object] %s", result)
+        return result
 
     # ── obs -> unified state ───────────────────────────────────────────────
 
@@ -383,12 +409,13 @@ class ActionServerWBCMsgpack:
 
     # ── unified action -> client action dict ───────────────────────────────
 
-    def _encode_action(self, pred_norm: np.ndarray, unnorm_key: str, state_unnorm: np.ndarray) -> Dict[str, np.ndarray]:
+    def _encode_action(self, pred_norm: np.ndarray, unnorm_key: str, state_unnorm: np.ndarray, safety=None) -> Dict[str, np.ndarray]:
+        safety=self._safety if safety is None else safety
         norm = self._norm_arrays[unnorm_key]
         unnorm = (pred_norm * norm["action_scale"] + norm["action_offset"]).astype(np.float32)  # (T,54)
         # Physical limits are physical quantities, so they are applied here (post
         # un-normalization) rather than in normalized space.
-        unnorm = self._safety.clip_joint_limits(unnorm, mask=self._action_mask)
+        unnorm = safety.clip_joint_limits(unnorm, mask=self._action_mask)
 
         left_anchor = state_unnorm[STATE_SLICES["left_xyz_rot6d"]]
         right_anchor = state_unnorm[STATE_SLICES["right_xyz_rot6d"]]
@@ -435,7 +462,7 @@ class ActionServerWBCMsgpack:
         # Seam smoothing happens last, in absolute space, because consecutive
         # chunks are composed onto different state anchors -- the discontinuity
         # only exists once the poses are absolute.
-        return self._safety.blend(action)
+        return safety.blend(action)
 
     # ── inference ──────────────────────────────────────────────────────────
 
@@ -443,8 +470,20 @@ class ActionServerWBCMsgpack:
         t0 = time.perf_counter()
         prep = self._build_example(obs)
         t1 = time.perf_counter()
-        with torch.no_grad():
-            out = self.model.predict_action(examples=[prep["example"]])
+        options = {}
+        if "encoder_generation_prompt" in obs:
+            if not isinstance(obs["encoder_generation_prompt"], bool):
+                raise ValueError("encoder_generation_prompt must be boolean")
+            options["encoder_generation_prompt"] = obs["encoder_generation_prompt"]
+        seed = obs.get("inference_seed")
+        if seed is not None and (not isinstance(seed, int) or isinstance(seed, bool) or not 0 <= seed < 2**31):
+            raise ValueError("inference_seed must be an integer in [0, 2**31)")
+        devices = [torch.cuda.current_device()] if DEVICE.type == "cuda" else []
+        rng = torch.random.fork_rng(devices=devices) if seed is not None else nullcontext()
+        with torch.no_grad(), rng:
+            if seed is not None:
+                torch.manual_seed(seed)
+            out = self.model.predict_action(examples=[prep["example"]], **options)
         if DEVICE.type == "cuda":
             torch.cuda.synchronize()
         t2 = time.perf_counter()
@@ -486,6 +525,40 @@ class ActionServerWBCMsgpack:
 
     # ── websocket serving (mirrors robotdeploy policy_server.py) ───────────
 
+    def get_action_candidates(self,obs,count=4):
+        """Frozen action proposals; independent safety state for each sample.
+
+        This is a separate capability. The ordinary get_action path and its
+        cross-chunk state remain unchanged. No target/object position is read.
+        """
+        if not isinstance(count,int) or isinstance(count,bool) or not 1<=count<=8:
+            raise ValueError('candidate count must be an integer in [1,8]')
+        seed=obs.get('inference_seed',0)
+        if not isinstance(seed,int) or isinstance(seed,bool) or not 0<=seed<2**31:
+            raise ValueError('inference_seed must be an integer in [0,2**31)')
+        prep=self._build_example(obs)
+        options={'action_samples':count}
+        if 'encoder_generation_prompt' in obs:
+            if not isinstance(obs['encoder_generation_prompt'],bool):raise ValueError('encoder_generation_prompt must be boolean')
+            options['encoder_generation_prompt']=obs['encoder_generation_prompt']
+        started=time.perf_counter()
+        devices=[torch.cuda.current_device()] if DEVICE.type=='cuda' else []
+        with torch.inference_mode(),torch.random.fork_rng(devices=devices):
+            torch.manual_seed(seed)
+            out=self.model.predict_action(examples=[prep['example']],**options)
+        if DEVICE.type=='cuda':torch.cuda.synchronize()
+        predictions=out['normalized_actions']
+        if len(predictions)!=count:raise RuntimeError('model returned wrong proposal count')
+        actions=[]
+        for prediction in predictions:
+            limiter=ActionSafetyLimiter(self._safety.cfg)
+            bounded=limiter.rate_limit(limiter.clamp_normalized(prediction,mask=self._action_mask),mask=self._action_mask)
+            actions.append(self._encode_action(bounded,prep['unnorm_key'],prep['state_unnorm'],safety=limiter))
+        elapsed=time.perf_counter()-started
+        logging.info('[get_action_candidates] count=%d elapsed=%.3fs',count,elapsed)
+        return {'candidates':actions,'elapsed_seconds':elapsed,'selection_source':'client_visual_filter',
+                'checkpoint_unchanged':True}
+
     async def _handler(self, websocket: "_ws_server.ServerConnection"):
         logging.info("Connection from %s opened", websocket.remote_address)
         packer = msgpack_numpy.Packer()
@@ -498,6 +571,10 @@ class ActionServerWBCMsgpack:
 
                 if mtype == "get_action":
                     return_data = self.get_action(msg["obs"])
+                elif mtype == 'get_action_candidates':
+                    return_data = self.get_action_candidates(msg['obs'],msg.get('count',4))
+                elif mtype == "ground_object":
+                    return_data = self.ground_object(msg["obs"])
                 elif mtype in ("policy_reset", "update_dataset"):
                     # Episode boundary: drop the cross-chunk seam state so the
                     # next chunk does not blend into the previous episode.

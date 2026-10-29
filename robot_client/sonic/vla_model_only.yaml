@@ -1,0 +1,162 @@
+# Frozen WLA task policy through a non-official SONIC execution adapter.
+# No RGB target selection, tactile grasp hold, lift reflex, or task state machine.
+# Safe reset/ready, IK, motor bounds, rate limits and stale-data stops remain.
+# SONIC planner generates leg references; this is NOT the missing Unitree WBC client.
+policy_url: ws://127.0.0.1:18600
+sonic_mode: planner
+startup_hold_seconds: 5.0
+state_endpoint: tcp://127.0.0.1:15557
+camera_endpoint: tcp://127.0.0.1:15555
+action_bind: tcp://127.0.0.1:15556
+reference_frame: pelvis
+tool_offsets:
+- - 0.10619
+  - 0.00605
+  - -0.00018
+  - 0
+  - 0
+  - 0
+- - 0.1087
+  - -0.00497
+  - 0.00027
+  - 0
+  - 0
+  - 0
+camera_mapping:
+  cam_left_high: ego_view
+  cam_left_wrist: left_wrist
+  cam_right_wrist: right_wrist
+model_fps: 30
+control_fps: 50
+lookahead_frames: 51
+inference_interval: 0.25
+action_timebase: receipt
+max_action_latency: 5.0
+policy_timeout: 20
+sensor_max_age: 0.5
+reference_max_age: 3.0
+max_joint_velocity: 3.0
+ik_position_tolerance: 0.02
+ik_rotation_tolerance: 0.1
+truncate_infeasible_tail: true
+base_height: 0.75
+base_velocity_deadband:
+- 0.0
+- 0.0
+- 0.0
+gripper_range:
+- - 0
+  - 5.5
+- - 0
+  - 5.5
+gripper_open_value:
+- 5.5
+- 5.5
+gripper_closed_value:
+- 0
+- 0
+gripper_overshoot_tolerance: 0.55
+instruction: pick up the red cube with your left hand
+unnorm_key: UnifoLM_G1_Dex1
+hand_open:
+- - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+- - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+hand_closed:
+- - 0.0445
+  - 0.0445
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+- - 0.0445
+  - 0.0445
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+ready_pose:
+- - 0.30824
+  - 0.21934
+  - 0.17764
+  - 0.18149
+  - 0.18195
+  - -1.02122
+- - 0.249
+  - -0.20247
+  - 0.19662
+  - 0.02214
+  - 0.23779
+  - 1.01845
+ready_gripper_value:
+- 4.48779
+- 4.48139
+ready_waist:
+- -0.00866456
+- 0.01826847
+- 0.13645154
+ready_transition_seconds: 4.0
+ready_settle_seconds: 2.0
+align_first_ee_frame: false
+execute_full_chunk: true
+action_time_scale: 1.0
+cartesian_tracking: false
+planner:
+  max_speed: 0.15
+  max_yaw_rate: 0.3
+  max_acceleration: 0.5
+  height_range:
+  - 0.65
+  - 0.8
+  stationary_mode: 4
+  velocity_deadband_mps: 0.0
+  yaw_deadband_rps: 0.0
+  walking_speed_threshold_mps: 1.0e-05
+  turning_rate_threshold_rps: 1.0e-05
+trace_observations: true
+trace_observation_interval: 1
+trace_lossless_observations: true
+trace_control: true
+stationary_single_arm: false
+max_ik_rejections: 3
+waist_tracking_compensation: true
+base_position_hold: false
+compensate_base_motion: false
+inference_seed: 0
+ready_gate:
+  enabled: true
+  stable_sim_seconds: 0.5
+  timeout_seconds: 45
+  waist_tolerance_rad: 0.2
+  base_tolerance_m: 0.12
+ready_arm_seed:
+- -0.2147693
+- 0.777944
+- 0.2463717
+- 0.0449289
+- -0.5206427
+- 0.1095957
+- -1.2158955
+- 0.0905408
+- -0.901825
+- -0.4365494
+- -0.497597
+- 0.8110564
+- 0.5667101
+- 0.9932885
+synchronized_observation: true
+execution_mode: model_only
+robot_sensor_endpoint: tcp://127.0.0.1:15558

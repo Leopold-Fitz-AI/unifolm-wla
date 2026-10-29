@@ -1,0 +1,79 @@
+instruction: pick up the red cube with your left hand
+target: red_cube
+required_hand: left
+table_height: 0.87
+band_anchor_height: 0.82
+lift_height: 0.08
+hold_seconds: 2.0
+gripper_type: dex1_cad
+realtime_clock: true
+camera_fps: 8
+jaw_root_x: 0.1
+grasp_center_x: 0.16009
+finger_rgba: 0.10 0.10 0.10 1
+calibrated_lighting: true
+camera_mounts:
+  unifolm_head:
+    position:
+    - 0.11541818891204753
+    - 0.006066730399608671
+    - 0.30710505677557093
+    quaternion_wxyz:
+    - -0.6124230900972409
+    - -0.3819038225147323
+    - 0.3038901029096376
+    - 0.6218828140557934
+    fovy: 100.04154405572568
+  unifolm_left_wrist:
+    position:
+    - 0.085
+    - 0
+    - 0.135
+    pitch_degrees: 40
+    fovy: 70
+  unifolm_right_wrist:
+    position:
+    - 0.085
+    - 0
+    - 0.135
+    pitch_degrees: 40
+    fovy: 70
+objects:
+- name: red_cube
+  xy:
+  - 0.32
+  - 0.18
+  half_size: 0.02
+  mass: 0.06
+  rgba:
+  - 0.85
+  - 0.04
+  - 0.03
+  - 1
+- name: green_cube
+  xy:
+  - 0.42
+  - 0.08
+  half_size: 0.02
+  mass: 0.06
+  rgba:
+  - 0.05
+  - 0.65
+  - 0.3
+  - 1
+- name: yellow_cube
+  xy:
+  - 0.32
+  - -0.18
+  half_size: 0.02
+  mass: 0.06
+  rgba:
+  - 0.9
+  - 0.7
+  - 0.03
+  - 1
+dex1_mount_x: 0.04
+contact_solver:
+  cone: elliptic
+  impratio: 10
+dex1_finger_rgba: 0.08 0.08 0.08 1

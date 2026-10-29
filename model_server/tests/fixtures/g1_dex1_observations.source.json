@@ -1,0 +1,8 @@
+{
+  "source": "https://huggingface.co/datasets/unitreerobotics/G1_Dex1_Stack_Block",
+  "original_parquet_sha256": "596721c2eea7f42b56857dabbc1281689c39c28425da1ddfdb211c2748830a42",
+  "original_rows": 129277,
+  "sampling": "96 positions spanning the full recording, plus arm-joint extrema in every-43rd-frame reference sample; only observation joints/EE labels, no actions, images, objects or task outcomes",
+  "fixture_sha256": "1edd263d3395e35750f3a3830f87d48beebaa01c3bea854c6492c51b98d2edcf",
+  "samples": 118
+}

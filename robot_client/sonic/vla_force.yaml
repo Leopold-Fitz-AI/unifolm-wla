@@ -1,0 +1,23 @@
+base_config: vla_grasp.yaml
+action_time_scale: 1.0
+stationary_single_arm: true
+max_ik_rejections: 3
+reference_max_age: 8.0
+hand_closed: [[0.045, 0.045, 0, 0, 0, 0, 0], [0.045, 0.045, 0, 0, 0, 0, 0]]
+grasp_hold_world_frame: true
+waist_tracking_compensation: true
+base_position_hold: true
+compensate_base_motion: true
+base_position_hold_options: {max_speed: 0.25, min_speed: 0.1}
+planner: {max_speed: 0.25, max_yaw_rate: 0, direction_resolution: 0.05, speed_resolution: 0.02}
+grasp_hold:
+  enabled: true
+  sensor_endpoint: tcp://127.0.0.1:15558
+  min_jaw_force_n: 0.05
+  contact_seconds: 0.08
+  hand_lift_m: 0.12
+  hold_sim_seconds: 6.0
+  loss_grace_seconds: 0.2
+inference_seed: 42
+# Bounded position trim after VLA-intended bilateral contact; jaw effort <=8 N.
+grasp_hold_force: {target_n: 2.0, gain: 3.0, max_rate: 3.0, max_correction: 1.5}

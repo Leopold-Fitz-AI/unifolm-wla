@@ -1,0 +1,4 @@
+base_config: vla_grasp_ready.yaml
+# VLA must acquire contact and lift >=6 cm itself. This explicitly labelled
+# execution assist adds at most 6 cm vertically, without an object pose input.
+grasp_lift_reflex: {trigger_lift_m: 0.06, target_lift_m: 0.12, max_extra_lift_m: 0.06, speed_mps: 0.04}

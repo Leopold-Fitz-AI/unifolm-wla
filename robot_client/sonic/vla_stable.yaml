@@ -1,0 +1,10 @@
+base_config: vla_grasp.yaml
+action_time_scale: 1.5
+grasp_hold:
+  enabled: true
+  sensor_endpoint: tcp://127.0.0.1:15558
+  min_jaw_force_n: 0.05
+  contact_seconds: 0.08
+  hand_lift_m: 0.12
+  hold_sim_seconds: 6.0
+  loss_grace_seconds: 0.2

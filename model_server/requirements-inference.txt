@@ -1,0 +1,17 @@
+# Install in a dedicated GPU env with a matching torch + torchvision pair.
+# Dataset readers, deepspeed and the full training environment are not required.
+transformers==5.5.3
+accelerate>=1.0
+diffusers>=0.35
+einops
+omegaconf
+safetensors
+qwen-vl-utils
+rich
+numpy>=1.26
+scipy>=1.10
+Pillow
+opencv-python-headless
+msgpack
+websockets>=13
+PyYAML

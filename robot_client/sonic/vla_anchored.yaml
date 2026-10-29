@@ -1,0 +1,5 @@
+base_config: vla_realtime.yaml
+base_position_hold: true
+compensate_base_motion: true
+base_position_hold_options: {max_speed: 0.25, min_speed: 0.1}
+planner: {max_speed: 0.25, max_yaw_rate: 0, direction_resolution: 0.05, speed_resolution: 0.02}

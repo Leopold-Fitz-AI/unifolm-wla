@@ -1,0 +1,18 @@
+instruction: pick up the red cube with your right hand
+target: red_cube
+required_hand: right
+table_height: 0.85
+band_anchor_height: 0.82
+lift_height: 0.08
+hold_seconds: 2.0
+objects:
+  - name: red_cube
+    xy: [0.27, -0.18]
+    half_size: 0.025
+    mass: 0.06
+    rgba: [0.85, 0.04, 0.03, 1]
+  - name: blue_cube
+    xy: [0.27, 0.18]
+    half_size: 0.025
+    mass: 0.06
+    rgba: [0.03, 0.08, 0.85, 1]

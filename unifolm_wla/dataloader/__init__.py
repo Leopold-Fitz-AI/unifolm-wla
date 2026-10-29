@@ -1,16 +1,15 @@
 import json
 from pathlib import Path
 
-import torch.distributed as dist
-from accelerate.logging import get_logger
-
-from .multi_source_dataset import create_training_dataloader
-
-logger = get_logger(__name__)
-
-
 def build_dataloader(cfg, dataset_py="single_source_datasets"):
     """Single entry point for building the VLA training dataloader."""
+    # Inference imports the action/state geometry modules through this package.
+    # Load dataset readers only when actually building a training dataloader.
+    from .multi_source_dataset import create_training_dataloader
+    import torch.distributed as dist
+    from accelerate.logging import get_logger
+
+    logger = get_logger(__name__)
     if dataset_py not in ("multi_source_datasets", "single_source_datasets"):
         raise ValueError(
             f"Unsupported dataset_py={dataset_py!r}; expected "

@@ -1,0 +1,53 @@
+# Simulation only. These frame/tool/gripper assumptions require calibration
+# against the training data before measuring task success.
+policy_url: ws://127.0.0.1:8600
+# planner executes base velocity/height using SONIC-generated leg references.
+# joint streams the model's predicted legs directly and allows stationary goals only.
+sonic_mode: planner
+# Give native IDLE control time to settle before the first learned action.
+startup_hold_seconds: 5
+state_endpoint: tcp://127.0.0.1:5557
+camera_endpoint: tcp://127.0.0.1:5555
+action_bind: tcp://127.0.0.1:5556
+reference_frame: pelvis
+tool_offsets: [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]]
+camera_mapping:
+  cam_left_high: ego_view
+  cam_left_wrist: left_wrist
+  cam_right_wrist: right_wrist
+model_fps: 30
+control_fps: 50
+lookahead_frames: 51
+inference_interval: 0.25
+# Run each new absolute action chunk when ready; observation mode instead skips
+# elapsed frames. Both modes reject replies exceeding this latency budget.
+action_timebase: receipt
+max_action_latency: 2.0
+policy_timeout: 5
+sensor_max_age: 0.5
+reference_max_age: 1.5
+max_joint_velocity: 3.0
+# Report the pre-rate-limit IK residual; reject targets beyond these tolerances.
+ik_position_tolerance: 0.02
+ik_rotation_tolerance: 0.05
+# Retain only a reachable prefix, keeping its original timestamps/deadline.
+truncate_infeasible_tail: true
+base_height: 0.75
+# Noise deadband only: larger commanded velocities are rejected, not ignored.
+base_velocity_deadband: [0.02, 0.02, 0.03]
+# Released Base checkpoint's Dex1 action offset=scale=2.74999 -> [0,5.5].
+# This is a model-domain range, not a physical hardware calibration.
+gripper_range: [[0, 5.5], [0, 5.5]]
+# Unitree Dex1_1: minimum motor position is CLOSED; high position is OPEN.
+gripper_open_value: [5.5, 5.5]
+gripper_closed_value: [0, 0]
+# Permit a small regression overshoot, saturate it, and count it in the report.
+gripper_overshoot_tolerance: 0.05
+instruction: stand still and keep both hands steady
+unnorm_key: UnifoLM_G1_Dex1
+# A scalar in gripper_range maps linearly to a simulated Dex3 grasp.
+# Physical Dex1 is NOT connected.
+hand_open: [[0, 0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0]]
+hand_closed:
+  - [-0.5, 0.7, 0.7, -1.5, -1.5, -0.6, -1.5]
+  - [0.5, -0.7, -0.7, 1.5, 1.5, 0.6, 1.5]

@@ -1,0 +1,11 @@
+{
+  "repository": "https://github.com/unitreerobotics/unitree_ros",
+  "commit": "deeb607f3a8945a394f53068c28b3a88dde7ff06",
+  "path": "robots/g1_description/g1_29dof_mode_15_with_dex1_1.urdf",
+  "license": "BSD-3-Clause",
+  "use": "Offline dataset-label kinematic reference only. Does not replace the actual SONIC execution URDF or dynamics.",
+  "sha256": {
+    "LICENSE": "84aac59fd3246e3ddc49d1387644e8fcf43b0def4f0b9fe687f372e90446df2d",
+    "g1_29dof_mode_15_with_dex1_1.urdf": "1a0a4f493d6686cd93952d8e67d6144d4c337929151c745e0440b8a28f08ed1a"
+  }
+}

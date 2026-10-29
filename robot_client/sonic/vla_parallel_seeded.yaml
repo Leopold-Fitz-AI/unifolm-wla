@@ -1,0 +1,3 @@
+base_config: vla_parallel.yaml
+# Deterministic diffusion noise; checkpoint parameters remain unchanged.
+inference_seed: 0

@@ -1,0 +1,20 @@
+base_config: vla_cad_ready.yaml
+base_height: 0.75
+base_position_hold: false
+planner:
+  max_speed: 0
+  max_yaw_rate: 0
+  stationary_mode: 4
+ready_gate:
+  enabled: true
+  stable_sim_seconds: 0.5
+  timeout_seconds: 45
+  waist_tolerance_rad: 0.2
+  base_tolerance_m: 0.12
+synchronized_observation: true
+grasp_lift_reflex:
+  trigger_lift_m: 0.06
+  target_lift_m: 0.12
+  max_extra_lift_m: 0.06
+  speed_mps: 0.04
+inference_seed: 0

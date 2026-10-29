@@ -1,0 +1,3 @@
+# Frozen VLA approach, close and lift; tactile hold does not add lift targets.
+base_config: vla_grasp_ready.yaml
+gripper_overshoot_tolerance: 0.55

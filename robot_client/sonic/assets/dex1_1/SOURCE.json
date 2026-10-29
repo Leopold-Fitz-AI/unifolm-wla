@@ -1,0 +1,18 @@
+{
+  "repository": "https://github.com/unitreerobotics/unitree_ros",
+  "commit": "7919cba47a3f68888f3b084945b0ffbf3bb3763a",
+  "license": "BSD-3-Clause",
+  "urdf": "https://raw.githubusercontent.com/unitreerobotics/unitree_ros/7919cba47a3f68888f3b084945b0ffbf3bb3763a/robots/dexterous_hand_description/dex1_1/dex1_1.urdf",
+  "sha256": {
+    "Link1_2.STL": "4e126368246e95d6049931852d0bb30f32017229644e4920caa3f28e69a46123",
+    "Link1_3.STL": "bd89d5cd8e5ca81e8dfc157328844c455f81c13a57fa21927952b7f49c85b66d",
+    "Link1_1.STL": "8b33ce21197f4079aa06b32e53d5597cded6f1663ee324bff9efd01d2dd2b454",
+    "Link2_3.STL": "bdba80d083133953bd53e8b74f9507d3466b0690c20d57111821713f0cbefeee",
+    "base_link.STL": "0469151d67b4e8230337d649e783d756582545d27944dc49c945fb6fe397cc54",
+    "Link2_2.STL": "4cc4ece9f2b95264928135c15923e6c34a6ee16c9055b665aecaf3094fcc4c2b",
+    "LICENSE.txt": "84aac59fd3246e3ddc49d1387644e8fcf43b0def4f0b9fe687f372e90446df2d",
+    "Link2_1.STL": "3d9ef89185e57a06ecacfe6efc51289b0f7317cb017d2c9e9632b4ef0b711a15",
+    "dex1_1.urdf": "31f2fa154e78a6d84a3c857fab797567cd156b5bf75fda9b5a6498faf09ae161"
+  },
+  "adapter_note": "40 mm wrist mounting offset is an explicit simulation fixture assumption."
+}

@@ -108,6 +108,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv-sonic/
 env/
 venv/
 ENV/
@@ -248,6 +249,14 @@ tmp
 !docs/WM4A.md
 !docs/train_action_expert.md
 !docs/train_action_expert_en.md
+!docs/sonic_simulation.md
+!docs/sonic_grasp.md
+!docs/sonic_vla_diagnostics.md
+!docs/sonic_vla_stable.md
+!docs/sonic_grasp_quality.md
+!docs/sonic_grasp_safe_fast.md
+!docs/sonic_wla_model_only.md
+!docs/sonic_wla_calibrated.md
 
 
 logs/*

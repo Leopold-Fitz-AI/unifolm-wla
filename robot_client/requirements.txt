@@ -1,0 +1,9 @@
+# Separate environment: SONIC and the model server need not share torch/numpy.
+numpy>=1.26,<3
+scipy>=1.10
+mujoco==3.3.7
+pyzmq>=23
+msgpack>=1
+websockets>=13
+opencv-python-headless>=4.8
+PyYAML>=6

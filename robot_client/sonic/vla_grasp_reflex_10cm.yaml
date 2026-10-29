@@ -1,0 +1,9 @@
+# Explicit assisted execution: VLA approaches, closes and raises the hand 4 cm;
+# tactile/proprioceptive feedback may then add at most 6 cm before holding.
+base_config: vla_grasp_ready.yaml
+gripper_overshoot_tolerance: 0.55
+grasp_lift_reflex:
+  trigger_lift_m: 0.04
+  target_lift_m: 0.10
+  max_extra_lift_m: 0.06
+  speed_mps: 0.04

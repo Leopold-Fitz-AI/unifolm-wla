@@ -1,0 +1,4 @@
+base_config: vla_force.yaml
+# Pair with --arm-tracking arms_pd: SONIC controls legs AND waist.
+ready_gate: {enabled: true, stable_sim_seconds: 0.5, timeout_seconds: 45, waist_tolerance_rad: 0.2}
+ready_reanchor_base: true

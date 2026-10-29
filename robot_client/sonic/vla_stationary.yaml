@@ -1,0 +1,5 @@
+base_config: vla_stable.yaml
+# Keep the single-arm instruction from drifting waist/unused arm/cameras.
+stationary_single_arm: true
+max_ik_rejections: 3
+reference_max_age: 8.0

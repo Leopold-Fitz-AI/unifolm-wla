@@ -1,0 +1,194 @@
+policy_url: ws://127.0.0.1:18600
+sonic_mode: planner
+startup_hold_seconds: 5.0
+state_endpoint: tcp://127.0.0.1:15557
+camera_endpoint: tcp://127.0.0.1:15555
+action_bind: tcp://127.0.0.1:15556
+reference_frame: pelvis
+tool_offsets:
+- - 0.10619
+  - 0.00605
+  - -0.00018
+  - 0
+  - 0
+  - 0
+- - 0.1087
+  - -0.00497
+  - 0.00027
+  - 0
+  - 0
+  - 0
+camera_mapping:
+  cam_left_high: ego_view
+  cam_left_wrist: left_wrist
+  cam_right_wrist: right_wrist
+model_fps: 30
+control_fps: 50
+lookahead_frames: 51
+inference_interval: 0.25
+action_timebase: receipt
+max_action_latency: 5.0
+policy_timeout: 20
+sensor_max_age: 0.5
+reference_max_age: 8.0
+max_joint_velocity: 3.0
+ik_position_tolerance: 0.02
+ik_rotation_tolerance: 0.1
+truncate_infeasible_tail: true
+base_height: 0.75
+base_velocity_deadband:
+- 0.02
+- 0.02
+- 0.03
+gripper_range:
+- - 0
+  - 5.5
+- - 0
+  - 5.5
+gripper_open_value:
+- 5.5
+- 5.5
+gripper_closed_value:
+- 0
+- 0
+gripper_overshoot_tolerance: 0.55
+instruction: pick up the red cube with your left hand
+unnorm_key: UnifoLM_G1_Dex1
+hand_open:
+- - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+- - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+hand_closed:
+- - 0.0445
+  - 0.0445
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+- - 0.0445
+  - 0.0445
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+ready_pose:
+- - 0.30824
+  - 0.21934
+  - 0.17764
+  - 0.18149
+  - 0.18195
+  - -1.02122
+- - 0.249
+  - -0.20247
+  - 0.19662
+  - 0.02214
+  - 0.23779
+  - 1.01845
+ready_gripper_value:
+- 4.48779
+- 4.48139
+ready_waist:
+- -0.00866456
+- 0.01826847
+- 0.13645154
+ready_transition_seconds: 4.0
+ready_settle_seconds: 2.0
+align_first_ee_frame: false
+execute_full_chunk: true
+action_time_scale: 1.0
+cartesian_tracking: false
+planner:
+  max_speed: 0
+  max_yaw_rate: 0
+  stationary_mode: 4
+trace_observations: true
+trace_observation_interval: 1
+trace_lossless_observations: true
+trace_control: true
+stationary_single_arm: true
+max_ik_rejections: 3
+grasp_hold_world_frame: true
+waist_tracking_compensation: true
+base_position_hold: false
+compensate_base_motion: true
+base_position_hold_options:
+  max_speed: 0.25
+  min_speed: 0.1
+grasp_hold:
+  enabled: true
+  sensor_endpoint: tcp://127.0.0.1:15558
+  min_jaw_force_n: 0.05
+  contact_seconds: 0.08
+  hand_lift_m: 0.1
+  hold_sim_seconds: 6.0
+  loss_grace_seconds: 0.2
+inference_seed: 0
+grasp_hold_force:
+  target_n: 4.0
+  gain: 3.0
+  max_rate: 3.0
+  max_correction: 2.5
+ready_gate:
+  enabled: true
+  stable_sim_seconds: 0.5
+  timeout_seconds: 45
+  waist_tolerance_rad: 0.2
+  base_tolerance_m: 0.12
+ready_reanchor_base: true
+grasp_hold_position_tolerance_m: 0.01
+grasp_hold_tool_offsets:
+- - 0.16009
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+- - 0.16009
+  - 0
+  - 0
+  - 0
+  - 0
+  - 0
+ready_arm_seed:
+- -0.2147693
+- 0.777944
+- 0.2463717
+- 0.0449289
+- -0.5206427
+- 0.1095957
+- -1.2158955
+- 0.0905408
+- -0.901825
+- -0.4365494
+- -0.497597
+- 0.8110564
+- 0.5667101
+- 0.9932885
+synchronized_observation: true
+visual_target:
+  candidate_count: 8
+  close_radius_m: 0.025
+  target_max_age_seconds: 2.0
+  select_prefix: true
+  grasp_height_bias_m: 0.012
+  horizontal_jaw_pitch_degrees: 20.0
+grasp_execution:
+  lift_m: 0.14
+  speed_mps: 0.04
+  close_seconds: 0.8
+  hold_seconds: 6.0
+  min_jaw_force_n: 0.5
+  align_seconds: 0.1
